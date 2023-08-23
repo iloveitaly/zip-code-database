@@ -20,3 +20,32 @@ mv *.txt gazetteer.txt
 ../bin/process-gazetteer gazetteer.txt > zip-codes.csv
 
 rm input.zip gazetteer.txt
+
+popd
+
+dolt table import -cf zip_codes data/zip-codes.csv
+dolt sql --query 'ALTER TABLE zip_codes ADD UNIQUE(ZIP);'
+
+# add a numbered pk to the table
+cat <<EOF > data/temp.sql
+-- 1. Create a temporary table
+CREATE TABLE temp_zip_codes (
+  id INT NOT NULL AUTO_INCREMENT,
+  zip varchar(16383),
+  lat float,
+  lng float,
+  PRIMARY KEY (id)
+);
+
+-- 2. Insert data from zip_codes into temp_zip_codes, ordering by ZIP
+INSERT INTO temp_zip_codes (zip, lat, lng)
+SELECT ZIP, LAT, LNG FROM zip_codes ORDER BY ZIP ASC;
+
+-- -- 3. Drop the old table
+DROP TABLE zip_codes;
+
+-- -- 4. Rename temp_zip_codes to zip_codes
+RENAME TABLE temp_zip_codes TO zip_codes;
+EOF
+dolt sql --file data/temp.sql
+rm data/temp.sql

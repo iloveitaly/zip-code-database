@@ -5,14 +5,6 @@ raise "#{ARGV[0]} does not exist" unless FileTest.exist? ARGV[0]
 raise "#{ARGV[0]} is not a file" unless FileTest.file? ARGV[0]
 raise "#{ARGV[0]} is not readable" unless FileTest.readable? ARGV[0]
 
-def print_2013_style(rh)
-        print "#{rh['GEOID']},"
-        print rh['INTPTLAT'].ljust(9,'0')
-        print ','
-        print sprintf("%.6f", rh['INTPTLONG']).rjust(11)
-        puts
-end
-
 def print_simple_style(rh)
         puts "#{rh['GEOID']},#{rh['INTPTLAT']},#{rh['INTPTLONG']}"
 end
@@ -31,6 +23,5 @@ puts 'ZIP,LAT,LNG'
 # convert the above array into a string of newline(LF)-delimited elements
 csv = CSV.new(_array.join("\n"), headers: true, col_sep: "\t")
 while row = csv.shift
-        print_2013_style row.to_hash
-        #print_simple_style row.to_hash
+        print_simple_style row.to_hash
 end
