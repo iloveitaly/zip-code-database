@@ -1,0 +1,22 @@
+#!/bin/bash
+
+set -eo pipefail
+
+cd $(dirname "$(realpath "${BASH_SOURCE[0]}")")/../
+pwd
+
+rm -rf data
+mkdir data
+pushd data
+
+filename="input.zip"
+
+http --download --output="$filename" --follow https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2022_Gazetteer/2022_Gaz_zcta_national.zip
+
+unzip "$filename"
+
+mv *.txt gazetteer.txt
+
+../bin/process-gazetteer gazetteer.txt > zip-codes.csv
+
+rm input.zip gazetteer.txt
