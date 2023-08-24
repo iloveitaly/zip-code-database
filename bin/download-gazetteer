@@ -58,3 +58,5 @@ dolt dump -f --result-format json
 mv doltdump/*.csv doltdump/zip_codes_with_pk.csv
 mv doltdump/* data/
 rm -rf doltdump
+
+dolt docs upload README.md readme.md
