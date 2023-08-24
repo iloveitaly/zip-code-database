@@ -20,7 +20,6 @@ mv *.txt gazetteer.txt
 ../bin/process-gazetteer gazetteer.txt > zip-codes.csv
 
 rm input.zip gazetteer.txt
-
 popd
 
 dolt table import -cf zip_codes data/zip-codes.csv
@@ -49,3 +48,13 @@ RENAME TABLE temp_zip_codes TO zip_codes;
 EOF
 dolt sql --file data/temp.sql
 rm data/temp.sql
+
+# now, let's generate some formats
+dolt dump -f --no-create-db --file-name data/zip_codes
+dolt dump -f --result-format csv
+dolt dump -f --result-format json
+
+# csv + json don't allow you to specify file type, at least with version 1.13.0
+mv doltdump/*.csv doltdump/zip_codes_with_pk.csv
+mv doltdump/* data/
+rm -rf doltdump
