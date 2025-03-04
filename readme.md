@@ -8,6 +8,27 @@ I wanted a database of all zip codes in the country, with their lat & long. And 
 2. Have the database in dolthub for easy querying, updating, and sharing
 3. Be able to easily update the zip code data
 
+Later on, I wanted the population in the database as well, so I added that in.
+
+## API
+
+The cool thing about dolthub is you can use it as an API. Get a random zip code:
+
+```shell
+http "https://www.dolthub.com/api/v1alpha1/iloveitaly/zip_codes_with_lat_and_lng/main?q=SELECT+*%0AFROM+%60zip_codes%60%0AORDER+BY+RAND%28%29%0ALIMIT+1%3B"
+```
+
+Even better, get a random zip code by population:
+
+```shell
+https://www.dolthub.com/api/v1alpha1/iloveitaly/zip_codes_with_lat_and_lng/main?q=SELECT+*%0AFROM+%28%0A++++SELECT+*%0A++++FROM+%60zip_codes%60%0A++++ORDER+BY+%60population%60+DESC%0A++++LIMIT+100%0A%29+AS+top_100%0AORDER+BY+RAND%28%29%0ALIMIT+1%3B
+```
+
+## How this works:
+
+1. Downlaod the latest zip code census data
+2. Process
+
 ## Formats
 
 * JSON
@@ -35,3 +56,7 @@ The data is available on Dolthub here:
 1. Update download URL in `bin/download-gazetteer
 2. Run `bin/download-gazetteer`
 3. Profit
+
+## TODO
+
+- [ ] clean up the population stuff, mostly vibe-coded

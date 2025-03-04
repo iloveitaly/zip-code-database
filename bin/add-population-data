@@ -1,0 +1,45 @@
+#!/usr/bin/env zsh
+
+# Script for adding population data to the existing zip_codes table using dolt import
+
+# Set the project root directory
+PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+DATA_DIR="${PROJECT_ROOT}/data"
+POPULATION_CSV="population/zip_code_with_population.csv"
+
+# Check if the population CSV file exists
+if [ ! -f "$POPULATION_CSV" ]; then
+  echo "Error: Population data file not found at $POPULATION_CSV"
+  exit 1
+fi
+
+# Enter the project directory
+cd "$PROJECT_ROOT" || exit 1
+
+# Import the CSV as a temporary table
+echo "Importing population data as temporary table..."
+dolt table import -c -f --pk zip temp_population "$POPULATION_CSV"
+
+# Update the zip_codes table with population data
+echo "Updating zip_codes table with population data..."
+cat <<EOF >"${DATA_DIR}/update_population.sql"
+-- Update zip_codes with data from temp_population table
+UPDATE zip_codes z
+JOIN temp_population t ON z.zip = t.zip
+SET z.population = t.population;
+
+-- Drop the temporary table
+DROP TABLE temp_population;
+EOF
+
+dolt sql --file "${DATA_DIR}/update_population.sql"
+
+# Clean up temporary files
+rm -f "${DATA_DIR}/update_population.sql"
+
+# Commit the changes
+echo "Committing population data updates..."
+dolt add .
+dolt commit -m "Add population and margin_of_error data to zip_codes table"
+
+echo "Successfully added population data to zip_codes table"

@@ -3,6 +3,7 @@
 set -eo pipefail
 
 cd $(dirname "$(realpath "${BASH_SOURCE[0]}")")/../
+PROJECT_ROOT="$(pwd)"
 pwd
 
 rm -rf data
@@ -11,28 +12,32 @@ pushd data
 
 filename="input.zip"
 
-http --download --output="$filename" --follow https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2022_Gazetteer/2022_Gaz_zcta_national.zip
+http --download --output="$filename" --follow https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2024_Gazetteer/2024_Gaz_zcta_national.zip
 
 unzip "$filename"
 
 mv *.txt gazetteer.txt
 
-../bin/process-gazetteer gazetteer.txt > zip-codes.csv
+../bin/process-gazetteer gazetteer.txt >zip-codes.csv
 
 rm input.zip gazetteer.txt
 popd
+
+# Drop the zip_codes database if it exists
+dolt sql -q "DROP DATABASE IF EXISTS zip_codes;"
 
 dolt table import -cf zip_codes data/zip-codes.csv
 dolt sql --query 'ALTER TABLE zip_codes ADD UNIQUE(ZIP);'
 
 # add a numbered pk to the table
-cat <<EOF > data/temp.sql
+cat <<EOF >data/temp.sql
 -- 1. Create a temporary table
 CREATE TABLE temp_zip_codes (
   id INT NOT NULL AUTO_INCREMENT,
-  zip varchar(16383),
+  zip varchar(1023),
   lat float,
   lng float,
+  population INT,
   PRIMARY KEY (id)
 );
 
@@ -48,6 +53,8 @@ RENAME TABLE temp_zip_codes TO zip_codes;
 EOF
 dolt sql --file data/temp.sql
 rm data/temp.sql
+
+${PROJECT_ROOT}/bin/add-population-data
 
 # now, let's generate some formats
 dolt dump -f --no-create-db --file-name data/zip_codes
