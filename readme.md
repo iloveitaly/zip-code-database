@@ -24,10 +24,14 @@ Even better, get a random zip code by population:
 https://www.dolthub.com/api/v1alpha1/iloveitaly/zip_codes_with_lat_and_lng/main?q=SELECT+*%0AFROM+%28%0A++++SELECT+*%0A++++FROM+%60zip_codes%60%0A++++ORDER+BY+%60population%60+DESC%0A++++LIMIT+100%0A%29+AS+top_100%0AORDER+BY+RAND%28%29%0ALIMIT+1%3B
 ```
 
-## How this works:
+## How this works
 
-1. Downlaod the latest zip code census data
-2. Process
+1. Download the latest zip code database ("gazetteer") from the Census Bureau. This contains lat/lng and zip code data.
+2. Transform this data and import it into a Dolthub database.
+3. Separately, manually download population data from the Census Bureau.
+4. Transform this data, import into dolt, and then update the existing zip code data with the population data.
+
+The entrypoint to this process is `bin/download-gazetteer`.
 
 ## Formats
 
