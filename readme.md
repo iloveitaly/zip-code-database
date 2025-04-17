@@ -24,6 +24,49 @@ Even better, get a random zip code by population:
 https://www.dolthub.com/api/v1alpha1/iloveitaly/zip_codes_with_lat_and_lng/main?q=SELECT+*%0AFROM+%28%0A++++SELECT+*%0A++++FROM+%60zip_codes%60%0A++++ORDER+BY+%60population%60+DESC%0A++++LIMIT+100%0A%29+AS+top_100%0AORDER+BY+RAND%28%29%0ALIMIT+1%3B
 ```
 
+Here's an example with python:
+
+```python
+def get_random_lat_lng() -> Tuple[float, float]:
+    """Fetch a random lat/lng from the dolthub API."""
+    url = "https://www.dolthub.com/api/v1alpha1/iloveitaly/zip_codes_with_lat_and_lng/main"
+    # pick the top 100 most populous zip codes
+    params = {
+        "q": """
+SELECT *
+FROM (
+    SELECT *
+    FROM `zip_codes`
+    ORDER BY `population` DESC
+    LIMIT 100
+) AS top_100
+ORDER BY RAND()
+LIMIT 1;
+              """
+    }
+
+    try:
+        log.info("Fetching random lat/lng from dolthub API...")
+        response = httpx.get(url, params=params)
+        response.raise_for_status()
+        data = response.json()
+
+        if data.get("rows") and len(data["rows"]) > 0:
+            row = data["rows"][0]
+            lat = float(row.get("lat"))
+            lng = float(row.get("lng"))
+            zip_code = row.get("zip")
+            log.info(f"Got random location: ZIP {zip_code}, lat={lat}, lng={lng}")
+            return lat, lng
+        else:
+            raise ValueError("No rows found in response")
+
+    except Exception as e:
+        log.error(f"Error fetching random lat/lng: {e}")
+        # Fallback to NYC coordinates
+        return 40.7128, -74.0060
+```
+
 ## How this works
 
 1. Download the latest zip code database ("gazetteer") from the Census Bureau. This contains lat/lng and zip code data.
