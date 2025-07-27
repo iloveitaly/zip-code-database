@@ -103,7 +103,3 @@ The data is available on Dolthub here:
 1. Update download URL in `bin/download-gazetteer
 2. Run `bin/download-gazetteer`
 3. Profit
-
-## TODO
-
-- [ ] clean up the population stuff, mostly vibe-coded
