@@ -98,6 +98,106 @@ The data is available on Dolthub here:
 
 <https://www.dolthub.com/repositories/iloveitaly/zip_codes_with_lat_and_lng>
 
+## Models
+
+### SQLModel / ActiveModel
+
+```python
+from activemodel import BaseModel
+from sqlmodel import Field
+
+
+class ZipCode(BaseModel, table=True):
+    """Represents a US zip code with location and population."""
+
+    id: int = Field(primary_key=True)
+    zip: str = Field(unique=True, index=True)
+    lat: float
+    lng: float
+    population: int | None = None
+```
+
+Here's a alembic migration to import:
+
+```python
+"""add_zip_code_to_database
+
+Revision ID: 9f2ad5bb714e
+Revises: 48c4c8ca899b
+Create Date: 2025-08-06 13:06:52.530393
+
+"""
+import csv
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+import sqlmodel
+import activemodel
+from sqlmodel import Session
+from activemodel.session_manager import global_session
+
+import app
+from app import log
+from app.models.zip_code import ZipCode
+
+
+# revision identifiers, used by Alembic.
+revision: str = '9f2ad5bb714e'
+down_revision: Union[str, None] = '48c4c8ca899b'
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def load_zip_codes_from_csv():
+    csv_path = app.root / "data/zip_code_with_population.csv"
+    rows = csv_path.read_text().splitlines()
+    reader = csv.DictReader(rows)
+
+    log.info("loading zip codes from csv", path=str(csv_path))
+
+    for row in reader:
+        # Skip rows with missing required fields
+        if not row["id"] or not row["zip"] or not row["lat"] or not row["lng"]:
+            continue
+
+        # Some population fields may be empty
+        population = int(row["population"]) if row["population"] else None
+
+        zip_code = ZipCode(
+            id=int(row["id"]),
+            zip=row["zip"],
+            lat=float(row["lat"]),
+            lng=float(row["lng"]),
+            population=population,
+        )
+        zip_code.save()
+
+
+def remove_all_zip_codes():
+    ZipCode.where().delete()
+
+
+def upgrade() -> None:
+    session = Session(bind=op.get_bind())
+
+    with global_session(session):
+        load_zip_codes_from_csv()
+
+    # flush before running any other operations, otherwise not all changes will persist to the transaction
+    session.flush()
+
+
+def downgrade() -> None:
+    session = Session(bind=op.get_bind())
+
+    with global_session(session):
+        remove_all_zip_codes()
+
+    # flush before running any other operations, otherwise not all changes will persist to the transaction
+    session.flush()
+```
+
 ## Updating
 
 1. Update download URL in `bin/download-gazetteer
