@@ -149,12 +149,14 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
-def load_zip_codes_from_csv():
+def load_zip_codes_from_csv(session: Session):
     csv_path = app.root / "data/zip_code_with_population.csv"
     rows = csv_path.read_text().splitlines()
     reader = csv.DictReader(rows)
 
     log.info("loading zip codes from csv", path=str(csv_path))
+
+    zip_codes = []
 
     for row in reader:
         # Skip rows with missing required fields
@@ -171,7 +173,10 @@ def load_zip_codes_from_csv():
             lng=float(row["lng"]),
             population=population,
         )
-        zip_code.save()
+        zip_codes.append(zip_code)
+
+    session.add_all(zip_codes)
+    session.commit()
 
 
 def remove_all_zip_codes():
@@ -181,8 +186,7 @@ def remove_all_zip_codes():
 def upgrade() -> None:
     session = Session(bind=op.get_bind())
 
-    with global_session(session):
-        load_zip_codes_from_csv()
+    load_zip_codes_from_csv(session)
 
     # flush before running any other operations, otherwise not all changes will persist to the transaction
     session.flush()
@@ -196,6 +200,7 @@ def downgrade() -> None:
 
     # flush before running any other operations, otherwise not all changes will persist to the transaction
     session.flush()
+
 ```
 
 ## Updating
