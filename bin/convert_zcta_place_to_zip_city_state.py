@@ -1,28 +1,56 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.13"
+# dependencies = [
+#     "click",
+#     "structlog"
+# ]
+# ///
 
-import argparse
 import csv
 import sys
 
+import click
+import structlog
 
-def parse_args():
-    p = argparse.ArgumentParser(description="Convert Census ZCTA->Place + Gazetteer to ZIP -> city,state CSV")
-    p.add_argument("--rel-file", required=True, help="Path to tab20_zcta520_place20_natl.txt (tab-delimited)")
-    p.add_argument(
-        "--place-gaz-file",
-        required=True,
-        help="Path to 2024_Gaz_place_national.txt (tab-delimited)",
-    )
-    p.add_argument("--out", required=True, help="Output CSV path")
-    p.add_argument(
-        "--selection",
-        choices=["max_pop", "max_area"],
-        default="max_area",
-        help="When a ZIP overlaps multiple places, choose the place with the maximum population share or area share (default: max_area)",
-    )
-    return p.parse_args()
+# Configure logging using structlog
+structlog.configure(
+    processors=[
+        structlog.stdlib.filter_by_level,
+        structlog.stdlib.add_logger_name,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.PositionalArgumentsFormatter(),
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.UnicodeDecoder(),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.stdlib.BoundLogger,
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    context_class=dict,
+    cache_logger_on_first_use=True,
+)
 
 
+@click.command()
+@click.option(
+    "--rel-file",
+    required=True,
+    help="Path to tab20_zcta520_place20_natl.txt (tab-delimited)",
+)
+@click.option(
+    "--place-gaz-file",
+    required=True,
+    help="Path to 2024_Gaz_place_national.txt (tab-delimited)",
+)
+@click.option("--out", required=True, help="Output CSV path")
+@click.option(
+    "--selection",
+    type=click.Choice(["max_pop", "max_area"]),
+    default="max_area",
+    help="When a ZIP overlaps multiple places, choose the place with the maximum population share or area share (default: max_area)",
+)
 def load_place_gazetteer(path):
     """
     Loads the Place Gazetteer into a lookup keyed by (STATEFP, PLACEFP) with values {name, state_abbr}.
@@ -37,7 +65,9 @@ def load_place_gazetteer(path):
         for row in reader:
             geoid = (row.get("GEOID") or row.get("GEOID20") or "").strip()
             name = (row.get("NAME") or row.get("NAME20") or "").strip()
-            state_abbr = (row.get("USPS") or row.get("STUSAB") or row.get("STATE") or "").strip()
+            state_abbr = (
+                row.get("USPS") or row.get("STUSAB") or row.get("STATE") or ""
+            ).strip()
 
             if not geoid or len(geoid) < 7:
                 continue
@@ -100,15 +130,32 @@ def select_best_place_per_zip(rel_rows, how="max_pop"):
         key = "zpop" if how == "max_pop" else "zarea"
         score = r.get(key, 0.0)
         if zcta not in best or score > best[zcta]["score"]:
-            best[zcta] = {"statefp": r["statefp"], "placefp": r["placefp"], "score": score}
+            best[zcta] = {
+                "statefp": r["statefp"],
+                "placefp": r["placefp"],
+                "score": score,
+            }
     return {z: (v["statefp"], v["placefp"]) for z, v in best.items()}
 
 
-def main():
-    args = parse_args()
-    place_lookup = load_place_gazetteer(args.place_gaz_file)
-    rel_rows = load_rel_file(args.rel_file)
-    selections = select_best_place_per_zip(rel_rows, how=args.selection)
+def main(rel_file, place_gaz_file, out, selection):
+    logger = structlog.get_logger()
+    logger.info(
+        "Starting ZCTA to ZIP conversion",
+        rel_file=rel_file,
+        place_gaz_file=place_gaz_file,
+        output=out,
+        selection=selection,
+    )
+
+    place_lookup = load_place_gazetteer(place_gaz_file)
+    logger.info("Loaded place gazetteer", places_count=len(place_lookup))
+
+    rel_rows = load_rel_file(rel_file)
+    logger.info("Loaded relationship file", relations_count=len(rel_rows))
+
+    selections = select_best_place_per_zip(rel_rows, how=selection)
+    logger.info("Selected best places for ZIPs", selections_count=len(selections))
 
     # Helpers to split NAME into base and type suffix
     multi_word_types = [
@@ -163,26 +210,40 @@ def main():
         info = place_lookup.get((statefp, placefp))
         if not info:
             missing += 1
+            logger.warning(
+                "Missing place info for ZIP", zip=zcta, statefp=statefp, placefp=placefp
+            )
             continue
         base_name, place_type = split_name_and_type(info["name"])
-        out_rows.append({
-            "zip": zcta,
-            "city": base_name,
-            "state": info["state"],
-            "type": place_type,
-        })
+        out_rows.append(
+            {
+                "zip": zcta,
+                "city": base_name,
+                "state": info["state"],
+                "type": place_type,
+            }
+        )
+
+    logger.info(
+        "Generated output rows", total_rows=len(out_rows), missing_count=missing
+    )
 
     # Sort by zip for determinism
     out_rows.sort(key=lambda r: r["zip"])
 
-    with open(args.out, "w", newline="", encoding="utf-8") as f:
+    with open(out, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=["zip", "city", "state", "type"])
         writer.writeheader()
         writer.writerows(out_rows)
 
+    logger.info(
+        "Successfully wrote output file", output_file=out, rows_written=len(out_rows)
+    )
+
     if missing:
-        print(f"Warning: {missing} selections missing in place gazetteer (statefp/placefp not found)", file=sys.stderr)
+        logger.warning(
+            "Some selections missing in place gazetteer", missing_count=missing
+        )
 
 
-if __name__ == "__main__":
-    main()
+# Click handles the CLI interface automatically

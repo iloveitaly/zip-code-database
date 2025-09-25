@@ -37,13 +37,21 @@ unzip -o place_gaz.zip
 popd >/dev/null
 
 echo "Converting to ZIP -> CITY, STATE mapping via Python..." >&2
-python3 "${CITY_STATE_DIR}/convert_zcta_place_to_zip_city_state.py" \
+uv run --script "${PROJECT_ROOT}/bin/convert_zcta_place_to_zip_city_state.py" \
   --rel-file "${RAW_DIR}/tab20_zcta520_place20_natl.txt" \
   --place-gaz-file "${RAW_DIR}/2020_Gaz_place_national.txt" \
   --out "${DATA_DIR}/zip_code_to_city_and_state.csv"
+
+echo "Creating ZIP codes with city/state and primary key..." >&2
+# Add ID column and create the PK version
+awk 'BEGIN{FS=OFS=","} NR==1{print "id," $0} NR>1{print NR-1 "," $0}' \
+  "${DATA_DIR}/zip_code_to_city_and_state.csv" > "${DATA_DIR}/zip_codes_with_city_state_pk.csv"
 
 echo "Importing into dolt table zip_code_to_city_and_state..." >&2
 dolt sql -q "DROP TABLE IF EXISTS zip_code_to_city_and_state;"
 dolt table import -c -f --pk zip zip_code_to_city_and_state "${DATA_DIR}/zip_code_to_city_and_state.csv"
 
-echo "Done. Output at ${DATA_DIR}/zip_code_to_city_and_state.csv" >&2
+rm -r "${RAW_DIR}"
+echo "Done. Output files:" >&2
+echo "  - ${DATA_DIR}/zip_code_to_city_and_state.csv" >&2
+echo "  - ${DATA_DIR}/zip_codes_with_city_state_pk.csv" >&2
