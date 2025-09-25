@@ -19,10 +19,22 @@ download-zipcode-population:
   # then, after downloading, run this command
   python clean_zip_data.py
 
+# https://www.census.gov/geographies/reference-files/time-series/geo/gazetteer-files.html
 [script]
 download-places:
   open 'https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2025_Gazetteer/2025_Gaz_place_national.zip'
   # assume everything in this recipe is a zsh script
 
-db-open:
-  open "mysql://root@localhost:3306"
+db_open:
+  # these are the defaults, but let's make them explicit
+  dolt sql-server --host 0.0.0.0 --port 3306 &
+  sleep 2
+  open "mysql://root@0.0.0.0:3306/zip-code-database"
+
+db_prompt:
+  uvx llm-sql-prompt@latest mysql://root@0.0.0.0:3306/zip-code-database --all
+
+# Build the zip -> city,state mapping table using Census 2020 relationships and Gazetteer
+build-zip-city-state:
+  bin/download-zcta-place
+
