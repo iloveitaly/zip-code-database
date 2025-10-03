@@ -3,7 +3,7 @@
 # requires-python = ">=3.13"
 # dependencies = [
 #     "click",
-#     "structlog"
+#     "structlog-config"
 # ]
 # ///
 
@@ -11,26 +11,10 @@ import csv
 import sys
 
 import click
-import structlog
+import structlog_config
 
-# Configure logging using structlog
-structlog.configure(
-    processors=[
-        structlog.stdlib.filter_by_level,
-        structlog.stdlib.add_logger_name,
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-        structlog.processors.UnicodeDecoder(),
-        structlog.processors.JSONRenderer(),
-    ],
-    wrapper_class=structlog.stdlib.BoundLogger,
-    logger_factory=structlog.stdlib.LoggerFactory(),
-    context_class=dict,
-    cache_logger_on_first_use=True,
-)
+# Configure logging using structlog_config
+structlog_config.configure_logger()
 
 
 @click.command()
