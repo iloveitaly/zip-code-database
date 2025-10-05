@@ -1,4 +1,16 @@
 #!/bin/bash
+# Downloads and processes the Census Bureau's ZCTA (ZIP Code Tabulation Area) Gazetteer file.
+# This gets processed into a table with a pk added. This is the first script that should be run.
+#
+# A "gazetteer" is a geographical dictionary or directory - historically, a published list of place names
+# with their locations. The term comes from the Italian "gazzetta" (a Venetian newspaper that published
+# such lists). In modern usage, the Census Bureau uses "gazetteer" to refer to reference files that provide
+# authoritative geographic data (coordinates, boundaries, etc.) for geographic entities like ZCTAs, places,
+# and counties.
+#
+# This gazetteer contains geographic reference data including latitude, longitude, and other
+# spatial information for each ZCTA. This data is used to map ZIP codes to their geographic
+# coordinates and is a foundational dataset for the zip-code-database project.
 
 set -eo pipefail
 
