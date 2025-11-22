@@ -1,0 +1,15 @@
+services:
+  zip_code_api:
+    image: ghcr.io/iloveitaly/zip-code-database:latest
+    container_name: zip_code_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    networks:
+      - default
+
+networks:
+  default:
+    driver: bridge
