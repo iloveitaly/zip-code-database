@@ -1,0 +1,27 @@
+name: Publish API Server
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare Server (Copy DB)
+        run: cp data/zip_codes.db server/zip_codes.db
+
+      - name: Build and Push Image
+        uses: iloveitaly/github-action-railpack@master
+        with:
+          context: server
+          push: true
+          tags: ghcr.io/${{ github.repository }}:latest,ghcr.io/${{ github.repository }}:${{ github.sha }}
