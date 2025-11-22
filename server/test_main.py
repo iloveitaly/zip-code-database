@@ -91,3 +91,49 @@ def test_read_invalid_coords_path():
     assert response.status_code == 400
     assert response.json()["detail"] == "Longitude must be between -180 and 180. Expected format: /{latitude},{longitude}"
 
+def test_get_zips_defaults():
+    response = client.get("/zips")
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) <= 250 # Should be 250 unless DB is small
+    if len(data) > 0:
+        # Default is sort by population desc, so first item should have high population
+        # We can't know exact max, but it should have population field
+        assert data[0]["population"] is not None
+
+def test_get_zips_pagination():
+    # Get page 1
+    response1 = client.get("/zips?page=1")
+    assert response1.status_code == 200
+    data1 = response1.json()
+    
+    # Get page 2
+    response2 = client.get("/zips?page=2")
+    assert response2.status_code == 200
+    data2 = response2.json()
+    
+    # Assuming we have enough data for 2 pages
+    if len(data1) == 250 and len(data2) > 0:
+        assert data1[0]["id"] != data2[0]["id"]
+
+def test_get_zips_sorting():
+    # Sort by zip asc
+    response = client.get("/zips?sort_by=zip&order=asc")
+    assert response.status_code == 200
+    data = response.json()
+    
+    if len(data) > 1:
+        assert data[0]["zip"] <= data[1]["zip"]
+
+def test_get_zips_invalid_params():
+    # Invalid sort_by
+    response = client.get("/zips?sort_by=invalid_field")
+    assert response.status_code == 400
+    assert "Invalid sort_by field" in response.json()["detail"]
+    
+    # Invalid order
+    response = client.get("/zips?order=invalid_order")
+    assert response.status_code == 400
+    assert "Invalid order" in response.json()["detail"]
+

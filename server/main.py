@@ -115,6 +115,30 @@ def find_nearest(lat: float, lng: float) -> dict:
     
     return dict(row)
 
+@app.get("/zips", response_model=list[ZipCodeData])
+def get_zips(
+    page: int = Query(1, ge=1, description="Page number"),
+    sort_by: str = Query("population", description="Sort by field"),
+    order: str = Query("desc", description="Sort order (asc or desc)")
+):
+    allowed_sort_columns = ["population", "zip", "city", "state"]
+    if sort_by not in allowed_sort_columns:
+        raise HTTPException(status_code=400, detail=f"Invalid sort_by field. Allowed: {', '.join(allowed_sort_columns)}")
+    
+    if order.lower() not in ["asc", "desc"]:
+        raise HTTPException(status_code=400, detail="Invalid order. Allowed: asc, desc")
+
+    limit = 250
+    offset = (page - 1) * limit
+    
+    query = f"SELECT * FROM zip_codes ORDER BY {sort_by} {order.upper()} LIMIT ? OFFSET ?"
+    
+    cursor = state.db_connection.cursor()
+    cursor.execute(query, (limit, offset))
+    rows = cursor.fetchall()
+    
+    return [dict(row) for row in rows]
+
 @app.get("/random", response_model=ZipCodeData)
 def get_random_zip():
     cursor = state.db_connection.cursor()
