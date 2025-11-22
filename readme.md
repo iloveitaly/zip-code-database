@@ -161,6 +161,36 @@ The API will be available at `http://localhost:8000`.
   curl http://localhost:8000/19335
   ```
 
+### Docker Compose Example
+
+For easily deploying and managing the API server, a `docker-compose.yml` file is provided:
+
+```yaml
+services:
+  zip_code_api:
+    image: ghcr.io/iloveitaly/zip-code-database:latest
+    container_name: zip_code_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    networks:
+      - default
+
+networks:
+  default:
+    driver: bridge
+```
+
+To run the API server using Docker Compose, navigate to the project root directory and execute:
+
+```bash
+docker compose up -d
+```
+
+The API will then be accessible at `http://localhost:8000`.
+
 ## Models
 
 ### SQLModel / ActiveModel
