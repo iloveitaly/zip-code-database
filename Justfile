@@ -44,3 +44,9 @@ build:
   bin/download-gazetteer
   bin/add-population-data
   bin/download-zcta-place
+
+# Build docker image for the API server
+docker:
+  cp data/zip_codes.db server/zip_codes.db
+  cd server && railpack build .
+  docker tag server:latest zip-code-database:latest
