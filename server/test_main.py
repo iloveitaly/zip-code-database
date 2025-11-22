@@ -137,3 +137,22 @@ def test_get_zips_invalid_params():
     assert response.status_code == 400
     assert "Invalid order" in response.json()["detail"]
 
+def test_get_zips_city_state_filter():
+    response = client.get("/zips?city_and_state_only=true")
+    assert response.status_code == 200
+    data = response.json()
+    
+    # Check that all returned items have city and state
+    for item in data:
+        assert item["city"] is not None
+        assert item["state"] is not None
+
+def test_get_random_zip_city_state_filter():
+    response = client.get("/random?city_and_state_only=true")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["city"] is not None
+    assert data["city"] != ""
+    assert data["state"] is not None
+    assert data["state"] != ""
+

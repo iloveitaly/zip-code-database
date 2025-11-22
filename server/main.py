@@ -119,7 +119,8 @@ def find_nearest(lat: float, lng: float) -> dict:
 def get_zips(
     page: int = Query(1, ge=1, description="Page number"),
     sort_by: str = Query("population", description="Sort by field"),
-    order: str = Query("desc", description="Sort order (asc or desc)")
+    order: str = Query("desc", description="Sort order (asc or desc)"),
+    city_and_state_only: bool = Query(False, description="Filter for rows with non-null city and state")
 ):
     allowed_sort_columns = ["population", "zip", "city", "state"]
     if sort_by not in allowed_sort_columns:
@@ -131,7 +132,8 @@ def get_zips(
     limit = 250
     offset = (page - 1) * limit
     
-    query = f"SELECT * FROM zip_codes ORDER BY {sort_by} {order.upper()} LIMIT ? OFFSET ?"
+    where_clause = "WHERE city IS NOT NULL AND state IS NOT NULL" if city_and_state_only else ""
+    query = f"SELECT * FROM zip_codes {where_clause} ORDER BY {sort_by} {order.upper()} LIMIT ? OFFSET ?"
     
     cursor = state.db_connection.cursor()
     cursor.execute(query, (limit, offset))
@@ -140,12 +142,17 @@ def get_zips(
     return [dict(row) for row in rows]
 
 @app.get("/random", response_model=ZipCodeData)
-def get_random_zip():
+def get_random_zip(
+    city_and_state_only: bool = Query(False, description="Filter for rows with non-null city and state")
+):
+    where_clause = "WHERE city IS NOT NULL AND state IS NOT NULL" if city_and_state_only else ""
+    query = f"SELECT * FROM zip_codes {where_clause} ORDER BY RANDOM() LIMIT 1"
+    
     cursor = state.db_connection.cursor()
-    cursor.execute("SELECT * FROM zip_codes ORDER BY RANDOM() LIMIT 1")
+    cursor.execute(query)
     row = cursor.fetchone()
     if not row:
-        raise HTTPException(status_code=404, detail="Database is empty")
+        raise HTTPException(status_code=404, detail="Database is empty or no matching rows found")
     return dict(row)
 
 @app.get("/nearest", response_model=ZipCodeData)
