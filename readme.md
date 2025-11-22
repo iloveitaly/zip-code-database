@@ -82,6 +82,11 @@ The entrypoint to this process is `bin/download-gazetteer`.
 * CSV
 * CSV with PK ID
 * SQL (mysql dialect)
+* **Enhanced formats** (after running `download-zcta-place`):
+  - CSV with city/state columns (may have limited data) (`zip_codes_with_city_state_pk.csv`)
+  - SQL with city/state columns (may have limited data) (`zip_codes.sql`)
+  - JSON with city/state columns (may have limited data) (`zip_codes.json`)
+  - **Note**: City/state data may be incomplete due to Census file format limitations
 
 ## Latest Zipcode Data
 
@@ -92,11 +97,69 @@ Where did this data come from?
 
 This is documented in the `bin/download-gazetteer` script.
 
+## City/State Data
+
+This project attempts to provide city and state information for each ZIP code.
+The data is sourced from Census Bureau's ZCTA-to-Place relationship files and Place Gazetteers.
+**Limitations**: Due to complexities and inconsistencies in Census data formats, the city/state mapping might be incomplete for some ZIP codes.
+You can find this enhanced data in the various output formats, including the SQLite database and the `zip_codes_with_city_state_pk.csv` file.
+
 ## DoltHub
 
 The data is available on Dolthub here:
 
 <https://www.dolthub.com/repositories/iloveitaly/zip_codes_with_lat_and_lng>
+
+## API Server
+
+This project includes a lightweight Python FastAPI server for querying the data locally or in a container.
+
+### Endpoints
+
+- `GET /random`: Returns a random zip code.
+- `GET /nearest?lat=...&lng=...`: Returns the nearest zip code to the provided coordinates.
+- `GET /{zip_code}`: Returns details for a specific zip code.
+
+### Docker
+
+You can build a Docker image containing the server and the latest database:
+
+```bash
+just docker
+```
+
+Alternatively, you can pull the pre-built image from GitHub Container Registry (GHCR):
+
+```bash
+docker pull ghcr.io/iloveitaly/zip-code-database:latest
+```
+
+Run the container:
+
+```bash
+docker run -p 8000:8000 ghcr.io/iloveitaly/zip-code-database:latest
+```
+
+The API will be available at `http://localhost:8000`.
+
+**API Overview (Examples):**
+
+- **Get a random zip code:**
+  ```bash
+  curl http://localhost:8000/random
+  ```
+
+- **Get nearest zip code by coordinates (lat,lng):**
+  ```bash
+  curl http://localhost:8000/39.7301,-104.9078
+  # Or using query parameters:
+  # curl "http://localhost:8000/nearest?lat=39.7301&lng=-104.9078"
+  ```
+
+- **Get details for a specific zip code:**
+  ```bash
+  curl http://localhost:8000/19335
+  ```
 
 ## Models
 
@@ -208,3 +271,8 @@ def downgrade() -> None:
 1. Update download URL in `bin/download-gazetteer
 2. Run `bin/download-gazetteer`
 3. Profit
+
+## Links
+
+* https://tools.usps.com/zip-code-lookup.htm?citybyzipcode
+* https://radar.cloudflare.com/ip
