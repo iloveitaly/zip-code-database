@@ -2,14 +2,14 @@
 
 set -eo pipefail
 
-# This script downloads the 2020 ZCTA-to-Place relationship file and the Place Gazetteer,
-# converts them into a ZIP -> CITY, STATE CSV using a Python script, and imports it into dolt.
+# This script assumes download-gazetteer and add-population-data have already been run.
+# It downloads the ZCTA-to-Place relationship data, processes it to add city/state information
+# to the existing zip_codes table, and exports the enhanced data.
 
 cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../"
 PROJECT_ROOT="$(pwd)"
 
 DATA_DIR="${PROJECT_ROOT}/data"
-CITY_STATE_DIR="${PROJECT_ROOT}/city_state"
 RAW_DIR="${DATA_DIR}/raw_city_state"
 
 mkdir -p "${RAW_DIR}"
@@ -25,10 +25,10 @@ PLACE_GAZ_URL="https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2020_Ga
 pushd "${RAW_DIR}" >/dev/null
 
 echo "Downloading ZCTA->Place relationship file..." >&2
-curl -fL -o tab20_zcta520_place20_natl.txt "$REL_TXT_URL"
+curl -k -L -o tab20_zcta520_place20_natl.txt "$REL_TXT_URL"
 
 echo "Downloading Place Gazetteer..." >&2
-curl -fL -o place_gaz.zip "$PLACE_GAZ_URL"
+curl -k -L -o place_gaz.zip "$PLACE_GAZ_URL"
 
 echo "Unzipping Place Gazetteer..." >&2
 rm -f 2024_Gaz_place_national.txt || true
@@ -37,21 +37,83 @@ unzip -o place_gaz.zip
 popd >/dev/null
 
 echo "Converting to ZIP -> CITY, STATE mapping via Python..." >&2
-uv run --script "${PROJECT_ROOT}/bin/convert_zcta_place_to_zip_city_state.py" \
+"${PROJECT_ROOT}/bin/convert_zcta_place_to_zip_city_state.py" \
   --rel-file "${RAW_DIR}/tab20_zcta520_place20_natl.txt" \
   --place-gaz-file "${RAW_DIR}/2020_Gaz_place_national.txt" \
   --out "${DATA_DIR}/zip_code_to_city_and_state.csv"
 
-echo "Creating ZIP codes with city/state and primary key..." >&2
-# Add ID column and create the PK version
-awk 'BEGIN{FS=OFS=","} NR==1{print "id," $0} NR>1{print NR-1 "," $0}' \
-  "${DATA_DIR}/zip_code_to_city_and_state.csv" > "${DATA_DIR}/zip_codes_with_city_state_pk.csv"
+dolt table import -c -f --pk zip temp_city_state "${DATA_DIR}/zip_code_to_city_and_state.csv"
 
-echo "Importing into dolt table zip_code_to_city_and_state..." >&2
-dolt sql -q "DROP TABLE IF EXISTS zip_code_to_city_and_state;"
-dolt table import -c -f --pk zip zip_code_to_city_and_state "${DATA_DIR}/zip_code_to_city_and_state.csv"
+# If we have city/state data, proceed with enhancement
+echo "Creating enhanced zip_codes table with city/state data..." >&2
+cat <<EOF >"${DATA_DIR}/enhance_zip_codes.sql"
+-- Add city/state columns to existing zip_codes table
+ALTER TABLE zip_codes ADD COLUMN city VARCHAR(255);
+ALTER TABLE zip_codes ADD COLUMN state VARCHAR(2);
+ALTER TABLE zip_codes ADD COLUMN type VARCHAR(255);
+
+-- Update zip_codes with city/state data
+UPDATE zip_codes z
+JOIN temp_city_state cs ON z.zip = cs.zip
+SET
+z.city = cs.city,
+z.state = cs.state,
+z.type = cs.type;
+
+-- Drop the temporary table
+DROP TABLE temp_city_state;
+EOF
+
+dolt sql --file "${DATA_DIR}/enhance_zip_codes.sql"
+
+# Clean up temporary files
+rm -f "${DATA_DIR}/enhance_zip_codes.sql"
+rm -f "${DATA_DIR}/zip_code_to_city_and_state.csv"
+
+# Generate output formats like in download-gazetteer
+echo "Generating output formats..." >&2
+dolt dump -f --no-create-db --file-name "${DATA_DIR}/zip_codes"
+dolt dump -f --result-format csv
+dolt dump -f --result-format json
+
+# Move files and clean up
+mv doltdump/*.csv "${DATA_DIR}/zip_codes_with_city_state_pk.csv"
+mv doltdump/* "${DATA_DIR}/"
+rm -rf doltdump
+
+echo "Done. Enhanced zip_codes table with city/state data created." >&2
+echo "Output files:" >&2
+echo "  - ${DATA_DIR}/zip_codes_with_city_state_pk.csv" >&2
+echo "  - ${DATA_DIR}/zip_codes.sql" >&2
+echo "  - ${DATA_DIR}/zip_codes.json" >&2
+
+# Generate SQLite database
+echo "Generating SQLite database from SQL dump..." >&2
+rm -f "${DATA_DIR}/zip_codes.db"
+
+# Create table and indices
+sqlite3 "${DATA_DIR}/zip_codes.db" <<EOF
+CREATE TABLE zip_codes (
+  id INTEGER PRIMARY KEY,
+  zip TEXT,
+  lat REAL,
+  lng REAL,
+  population INTEGER,
+  city TEXT,
+  state TEXT,
+  type TEXT
+);
+CREATE INDEX idx_zip ON zip_codes(zip);
+CREATE INDEX idx_city ON zip_codes(city);
+CREATE INDEX idx_state ON zip_codes(state);
+EOF
+
+# Import data
+# We filter for INSERT statements from the Dolt dump.
+# Dolt dumps are MySQL compatible, but simple INSERTs work in SQLite too.
+# We must also fix MySQL escaped quotes (\') to standard SQL escaped quotes ('')
+grep "^INSERT INTO" "${DATA_DIR}/zip_codes.sql" | sed "s/\\\\'/''/g" | sqlite3 "${DATA_DIR}/zip_codes.db"
+
+echo "  - ${DATA_DIR}/zip_codes.db" >&2
 
 rm -r "${RAW_DIR}"
-echo "Done. Output files:" >&2
-echo "  - ${DATA_DIR}/zip_code_to_city_and_state.csv" >&2
-echo "  - ${DATA_DIR}/zip_codes_with_city_state_pk.csv" >&2

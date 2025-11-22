@@ -11,30 +11,13 @@ import csv
 import sys
 
 import click
+import structlog
 import structlog_config
 
 # Configure logging using structlog_config
 structlog_config.configure_logger()
 
 
-@click.command()
-@click.option(
-    "--rel-file",
-    required=True,
-    help="Path to tab20_zcta520_place20_natl.txt (tab-delimited)",
-)
-@click.option(
-    "--place-gaz-file",
-    required=True,
-    help="Path to 2024_Gaz_place_national.txt (tab-delimited)",
-)
-@click.option("--out", required=True, help="Output CSV path")
-@click.option(
-    "--selection",
-    type=click.Choice(["max_pop", "max_area"]),
-    default="max_area",
-    help="When a ZIP overlaps multiple places, choose the place with the maximum population share or area share (default: max_area)",
-)
 def load_place_gazetteer(path):
     """
     Loads the Place Gazetteer into a lookup keyed by (STATEFP, PLACEFP) with values {name, state_abbr}.
@@ -122,6 +105,24 @@ def select_best_place_per_zip(rel_rows, how="max_pop"):
     return {z: (v["statefp"], v["placefp"]) for z, v in best.items()}
 
 
+@click.command()
+@click.option(
+    "--rel-file",
+    required=True,
+    help="Path to tab20_zcta520_place20_natl.txt (tab-delimited)",
+)
+@click.option(
+    "--place-gaz-file",
+    required=True,
+    help="Path to 2024_Gaz_place_national.txt (tab-delimited)",
+)
+@click.option("--out", required=True, help="Output CSV path")
+@click.option(
+    "--selection",
+    type=click.Choice(["max_pop", "max_area"]),
+    default="max_area",
+    help="When a ZIP overlaps multiple places, choose the place with the maximum population share or area share (default: max_area)",
+)
 def main(rel_file, place_gaz_file, out, selection):
     logger = structlog.get_logger()
     logger.info(
@@ -230,4 +231,5 @@ def main(rel_file, place_gaz_file, out, selection):
         )
 
 
-# Click handles the CLI interface automatically
+if __name__ == "__main__":
+    main()

@@ -69,12 +69,13 @@ rm data/temp.sql
 ${PROJECT_ROOT}/bin/add-population-data
 
 # now, let's generate some formats
+rm -rf doltdump
 dolt dump -f --no-create-db --file-name data/zip_codes
 dolt dump -f --result-format csv
 dolt dump -f --result-format json
 
 # csv + json don't allow you to specify file type, at least with version 1.13.0
-mv doltdump/*.csv doltdump/zip_codes_with_pk.csv
+mv doltdump/zip_codes.csv doltdump/zip_codes_with_pk.csv
 mv doltdump/* data/
 rm -rf doltdump
 
