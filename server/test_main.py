@@ -137,6 +137,27 @@ def test_get_zips_invalid_params():
     assert response.status_code == 400
     assert "Invalid order" in response.json()["detail"]
 
+def test_get_zip_by_id():
+    # First get a valid ID from the random endpoint
+    response = client.get("/random")
+    assert response.status_code == 200
+    random_zip_data = response.json()
+    valid_id = random_zip_data["id"]
+
+    # Query by that ID
+    response = client.get(f"/id/{valid_id}")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == valid_id
+    assert data["zip"] == random_zip_data["zip"]
+
+def test_get_zip_by_id_invalid():
+    # Assuming 0 or negative IDs don't exist, or a very large number
+    # Based on previous schema check, id is INTEGER PRIMARY KEY, usually starting at 1.
+    response = client.get("/id/0")
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Zip code not found"
+
 def test_get_zips_city_state_filter():
     response = client.get("/zips?city_and_state_only=true")
     assert response.status_code == 200
