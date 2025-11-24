@@ -162,6 +162,17 @@ def get_nearest_zip(
 ):
     return find_nearest(lat, lng)
 
+@app.get("/id/{intId}", response_model=ZipCodeData)
+def get_zip_by_id(intId: int):
+    cursor = state.db_connection.cursor()
+    cursor.execute("SELECT * FROM zip_codes WHERE id = ?", (intId,))
+    row = cursor.fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Zip code not found")
+
+    return dict(row)
+
 @app.get("/{query}", response_model=ZipCodeData)
 def get_zip_or_coords(query: str):
     # Check if input looks like coordinates "lat,lng"
