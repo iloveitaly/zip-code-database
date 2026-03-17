@@ -50,6 +50,7 @@ CREATE TABLE temp_zip_codes (
   lat float,
   lng float,
   population INT,
+  timezone varchar(255),
   PRIMARY KEY (id)
 );
 
@@ -67,6 +68,7 @@ dolt sql --file data/temp.sql
 rm data/temp.sql
 
 ${PROJECT_ROOT}/bin/add-population-data
+${PROJECT_ROOT}/bin/add-timezone-data.py
 
 # now, let's generate some formats
 rm -rf doltdump

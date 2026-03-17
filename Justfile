@@ -31,6 +31,9 @@ db_open:
   sleep 2
   open "mysql://root@0.0.0.0:3306/zip-code-database"
 
+db_sqlite_open:
+  sqlite3 data/zip_codes.db
+
 db_prompt:
   uvx llm-sql-prompt@latest mysql://root@0.0.0.0:3306/zip-code-database --all
 

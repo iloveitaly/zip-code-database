@@ -99,6 +99,7 @@ CREATE TABLE zip_codes (
   lat REAL,
   lng REAL,
   population INTEGER,
+  timezone TEXT,
   city TEXT,
   state TEXT,
   type TEXT

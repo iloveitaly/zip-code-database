@@ -1,6 +1,6 @@
 # Zip Code Database Based on Census Data
 
-I wanted a database of all zip codes in the country, with their lat & long. And I wanted it to be easy to import and easy to update.
+I wanted a database of all zip codes in the country, with their lat & long, and **IANA timezone**. And I wanted it to be easy to import and easy to update.
 
 [I found this gist](https://gist.github.com/abatko/ee7b24db82a6f50cfce02afafa1dfd1e), which was great and did most of the hard work, but I wanted to:
 
@@ -8,7 +8,7 @@ I wanted a database of all zip codes in the country, with their lat & long. And 
 2. Have the database in dolthub for easy querying, updating, and sharing
 3. Be able to easily update the zip code data
 
-Later on, I wanted the population in the database as well, so I added that in.
+Later on, I wanted the population and timezones in the database as well, so I added those in.
 
 ## API
 
@@ -71,8 +71,9 @@ LIMIT 1;
 
 1. Download the latest zip code database ("gazetteer") from the Census Bureau. This contains lat/lng and zip code data.
 2. Transform this data and import it into a Dolthub database.
-3. Separately, manually download population data from the Census Bureau.
-4. Transform this data, import into dolt, and then update the existing zip code data with the population data.
+3. Calculate the IANA timezone for each coordinate pair using the offline `timezonefinder` library.
+4. Separately, manually download population data from the Census Bureau.
+5. Transform this data, import into dolt, and then update the existing zip code data with the population data.
 
 The entrypoint to this process is `bin/download-gazetteer`.
 
@@ -83,9 +84,9 @@ The entrypoint to this process is `bin/download-gazetteer`.
 * CSV with PK ID
 * SQL (mysql dialect)
 * **Enhanced formats** (after running `download-zcta-place`):
-  - CSV with city/state columns (may have limited data) (`zip_codes_with_city_state_pk.csv`)
-  - SQL with city/state columns (may have limited data) (`zip_codes.sql`)
-  - JSON with city/state columns (may have limited data) (`zip_codes.json`)
+  - CSV with city, state, and timezone columns (`zip_codes_with_city_state_pk.csv`)
+  - SQL with city, state, and timezone columns (`zip_codes.sql`)
+  - JSON with city, state, and timezone columns (`zip_codes.json`)
   - **Note**: City/state data may be incomplete due to Census file format limitations
 
 ## Latest Zipcode Data
@@ -112,7 +113,7 @@ The data is available on Dolthub here:
 
 ## API Server
 
-This project includes a lightweight Python FastAPI server for querying the data locally or in a container.
+This project includes a lightweight Python FastAPI server for querying the data locally or in a container. All responses include the calculated IANA timezone.
 
 ### Endpoints
 
@@ -208,6 +209,7 @@ class ZipCode(BaseModel, table=True):
     lat: float
     lng: float
     population: int | None = None
+    timezone: str | None = None
 ```
 
 Here's a alembic migration to import:
@@ -265,6 +267,7 @@ def load_zip_codes_from_csv(session: Session):
             lat=float(row["lat"]),
             lng=float(row["lng"]),
             population=population,
+            timezone=row.get("timezone"),
         )
         zip_codes.append(zip_code)
 
