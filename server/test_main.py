@@ -24,6 +24,30 @@ def setup_database():
     state.kd_tree = None
     state.zip_codes_list = []
 
+def test_read_valid_id():
+    # First get a random record
+    response = client.get("/random")
+    assert response.status_code == 200
+    random_zip = ZipCodeData(**response.json())
+    assert random_zip.id is not None
+
+    # Then query by that id
+    id_response = client.get(f"/id/{random_zip.id}")
+    assert id_response.status_code == 200
+    id_zip = ZipCodeData(**id_response.json())
+
+    # Assert they are the same
+    assert id_zip.id == random_zip.id
+    assert id_zip.zip == random_zip.zip
+    assert id_zip.city == random_zip.city
+    assert id_zip.state == random_zip.state
+
+def test_read_invalid_id():
+    # Test a non-existent id
+    response = client.get("/id/999999999")
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Id not found"
+
 def test_read_random_zip():
     response = client.get("/random")
     assert response.status_code == 200

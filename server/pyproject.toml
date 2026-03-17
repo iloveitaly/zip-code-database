@@ -12,3 +12,8 @@ dependencies = [
     "structlog-config[fastapi]>=0.7.0",
     "uvicorn>=0.38.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
