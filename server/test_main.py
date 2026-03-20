@@ -65,6 +65,20 @@ def test_read_valid_zip_code():
     assert zip_data.zip == test_zip
     assert zip_data.city == "Adjuntas"
     assert zip_data.state == "PR"
+    assert zip_data.timezone == "America/Puerto_Rico"
+
+def test_get_zips_sorting_timezone():
+    # Sort by timezone asc
+    response = client.get("/zips?sort_by=timezone&order=asc")
+    assert response.status_code == 200
+    data = response.json()
+    
+    if len(data) > 1:
+        # Some timezones might be None, so we handle that if needed, 
+        # but for this test we expect them to be sorted
+        timezones = [item["timezone"] for item in data if item["timezone"] is not None]
+        if len(timezones) > 1:
+            assert timezones[0] <= timezones[-1]
 
 def test_read_invalid_zip_code():
     response = client.get("/99999") # Assuming 99999 is not in the database

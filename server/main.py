@@ -34,6 +34,7 @@ class ZipCodeData(BaseModel):
     lat: Optional[float]
     lng: Optional[float]
     population: Optional[int]
+    timezone: Optional[str] = None
     city: Optional[str]
     state: Optional[str]
     type: Optional[str]
@@ -122,7 +123,7 @@ def get_zips(
     order: str = Query("desc", description="Sort order (asc or desc)"),
     city_and_state_only: bool = Query(False, description="Filter for rows with non-null city and state")
 ):
-    allowed_sort_columns = ["population", "zip", "city", "state"]
+    allowed_sort_columns = ["population", "zip", "city", "state", "timezone"]
     if sort_by not in allowed_sort_columns:
         raise HTTPException(status_code=400, detail=f"Invalid sort_by field. Allowed: {', '.join(allowed_sort_columns)}")
     
