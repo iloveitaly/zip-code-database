@@ -33,5 +33,5 @@ checksum = "sha256:8458fdf45b9b47685a7dea76d72a4b8cf946091fe48cac43d3564f7f318e8
 url = "https://github.com/astral-sh/python-build-standalone/releases/download/20260310/cpython-3.14.3+20260310-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
 
 [[tools.uv]]
-version = "0.10.11"
+version = "0.10.12"
 backend = "asdf:uv"
