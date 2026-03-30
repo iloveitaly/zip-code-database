@@ -39,7 +39,7 @@ popd
 dolt sql -q "DROP DATABASE IF EXISTS zip_codes;"
 
 dolt table import -cf zip_codes data/zip-codes.csv
-dolt sql --query 'ALTER TABLE zip_codes ADD UNIQUE(ZIP);'
+dolt sql --query 'CREATE UNIQUE INDEX idx_zip_unique ON zip_codes(ZIP);'
 
 # add a numbered pk to the table
 cat <<EOF >data/temp.sql
