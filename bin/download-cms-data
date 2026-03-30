@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+set -eo pipefail
+
+# Downloads and processes the CMS ZIP5 Medicare Fee-for-Service Payment file.
+# This adds ZIP codes that are not ZCTAs (e.g., PO Boxes, special facilities) to the database.
+
+cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../"
+PROJECT_ROOT="$(pwd)"
+
+DATA_DIR="${PROJECT_ROOT}/data"
+CMS_TEMP="${DATA_DIR}/cms_temp"
+
+mkdir -p "${CMS_TEMP}"
+
+echo "Downloading CMS ZIP5 data..." >&2
+# Using a browser User-Agent because CMS.gov often blocks direct curl requests
+curl -s -L -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+  -o "${CMS_TEMP}/cms_2025.zip" "https://www.cms.gov/files/zip/2025-end-year-zip-code-file.zip"
+
+echo "Extracting CMS ZIP5 data..." >&2
+unzip -o -d "${CMS_TEMP}" "${CMS_TEMP}/cms_2025.zip" >/dev/null
+
+# Find the TXT file (it might have slightly different names depending on the version)
+TXT_FILE=$(ls ${CMS_TEMP}/ZIP5_*.txt | head -n 1)
+
+if [ -z "${TXT_FILE}" ]; then
+  echo "Error: Could not find CMS TXT file in the archive." >&2
+  exit 1
+fi
+
+echo "Processing CMS ZIP5 data into dolt..." >&2
+
+# We'll use a python script to parse the fixed-width format and create a CSV for dolt import
+PROCESSED_CSV="${CMS_TEMP}/cms_zips_processed.csv"
+python3 - <<EOF
+import os
+
+txt_file = "${TXT_FILE}"
+out_file = "${PROCESSED_CSV}"
+
+with open(txt_file, 'r', encoding='latin-1') as f, open(out_file, 'w') as out:
+    out.write("zip,state,type\n")
+    seen_zips = set()
+    for line in f:
+        if len(line) < 7: continue
+        state = line[0:2].strip()
+        zip_code = line[2:7].strip()
+        if zip_code and state and zip_code not in seen_zips and zip_code.isdigit() and len(zip_code) == 5:
+            out.write(f"{zip_code},{state},non-geographic\n")
+            seen_zips.add(zip_code)
+EOF
+
+# Import into a temporary table in dolt (run from root)
+dolt table import -c -f --pk zip temp_cms_zips "${PROCESSED_CSV}"
+
+# Ensure state and type columns exist in zip_codes before merging
+dolt sql -q "
+ALTER TABLE zip_codes ADD COLUMN state VARCHAR(2);
+ALTER TABLE zip_codes ADD COLUMN type VARCHAR(255);
+" || true
+
+# Update the main zip_codes table. 
+# We only insert missing ones.
+dolt sql -q "
+INSERT IGNORE INTO zip_codes (zip, state, type)
+SELECT zip, state, type FROM temp_cms_zips;
+"
+
+# Clean up
+dolt sql -q "DROP TABLE temp_cms_zips;"
+rm -rf "${CMS_TEMP}"
+
+echo "CMS ZIP codes integrated into dolt database." >&2

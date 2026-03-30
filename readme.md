@@ -69,13 +69,24 @@ LIMIT 1;
 
 ## How this works
 
-1. Download the latest zip code database ("gazetteer") from the Census Bureau. This contains lat/lng and zip code data.
-2. Transform this data and import it into a Dolthub database.
-3. Calculate the IANA timezone for each coordinate pair using the offline `timezonefinder` library.
-4. Separately, manually download population data from the Census Bureau.
-5. Transform this data, import into dolt, and then update the existing zip code data with the population data.
+1. **Census ZCTAs**: Download the latest ZIP Code Tabulation Area (ZCTA) Gazetteer file from the Census Bureau. This contains primary lat/lng and geographic data.
+2. **City/State Mapping**: Process Census ZCTA-to-Place relationship files to map ZIP codes to their primary city and state.
+3. **CMS ZIP5 Integration**: Download the quarterly Medicare Fee-for-Service ZIP5 file. This adds ~9,000 "non-geographic" ZIP codes (PO Boxes, unique facilities, military codes) that are excluded from Census ZCTA data.
+4. **Data Healing**: For non-geographic ZIPs lacking coordinates, the build approximates their location and city by calculating the average coordinates and most common city name of all geographic ZIP codes sharing the same 3-digit prefix (SCF).
+5. **Timezone Calculation**: Calculate the IANA timezone for every coordinate pair using the offline `timezonefinder` library.
+6. **Population Data**: Manually download the latest Census population data and update the database records.
 
 The entrypoint to this process is `bin/download-gazetteer`.
+
+## Non-Geographic ZIP Codes
+
+Standard Census data (ZCTAs) only includes ZIP codes where people live in a defined geographic area. This project supplements that data with the CMS ZIP5 dataset to include:
+
+*   **PO Box Only ZIPs**: ZIP codes assigned exclusively to Post Office boxes.
+*   **Unique ZIPs**: ZIP codes assigned to single buildings or large organizations.
+*   **Military ZIPs**: APO/FPO locations.
+
+These records are marked with `type = 'non-geographic'`. Their location and city data are approximated based on their nearest geographic neighbors to ensure the database is functional for distance and timezone queries.
 
 ## Formats
 

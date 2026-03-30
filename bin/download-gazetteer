@@ -70,6 +70,17 @@ rm data/temp.sql
 ${PROJECT_ROOT}/bin/add-population-data
 ${PROJECT_ROOT}/bin/add-timezone-data.py
 
+# build city/state data
+${PROJECT_ROOT}/bin/download-zcta-place
+
+# CMS data integration (adds non-geographic ZIPs)
+chmod +x ${PROJECT_ROOT}/bin/download-cms-data
+${PROJECT_ROOT}/bin/download-cms-data
+
+# heal missing data for non-geographic zips
+chmod +x ${PROJECT_ROOT}/bin/heal-zip-data.py
+${PROJECT_ROOT}/bin/heal-zip-data.py
+
 # now, let's generate some formats
 rm -rf doltdump
 dolt dump -f --no-create-db --file-name data/zip_codes
@@ -80,5 +91,32 @@ dolt dump -f --result-format json
 mv doltdump/zip_codes.csv doltdump/zip_codes_with_pk.csv
 mv doltdump/* data/
 rm -rf doltdump
+
+# Generate SQLite database
+echo "Generating SQLite database from SQL dump..." >&2
+rm -f data/zip_codes.db
+
+# Create table and indices
+sqlite3 data/zip_codes.db <<EOF
+CREATE TABLE zip_codes (
+  id INTEGER PRIMARY KEY,
+  zip TEXT,
+  lat REAL,
+  lng REAL,
+  population INTEGER,
+  timezone TEXT,
+  city TEXT,
+  state TEXT,
+  type TEXT
+);
+CREATE INDEX idx_zip ON zip_codes(zip);
+CREATE INDEX idx_city ON zip_codes(city);
+CREATE INDEX idx_state ON zip_codes(state);
+EOF
+
+# Import data
+# Dolt dumps are MySQL compatible, but simple INSERTs work in SQLite too.
+# We must also fix MySQL escaped quotes (\') to standard SQL escaped quotes ('')
+grep "^INSERT INTO" "data/zip_codes.sql" | sed "s/\\\\'/''/g" | sqlite3 data/zip_codes.db
 
 dolt docs upload README.md readme.md

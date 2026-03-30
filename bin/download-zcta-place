@@ -70,51 +70,6 @@ dolt sql --file "${DATA_DIR}/enhance_zip_codes.sql"
 rm -f "${DATA_DIR}/enhance_zip_codes.sql"
 rm -f "${DATA_DIR}/zip_code_to_city_and_state.csv"
 
-# Generate output formats like in download-gazetteer
-echo "Generating output formats..." >&2
-dolt dump -f --no-create-db --file-name "${DATA_DIR}/zip_codes"
-dolt dump -f --result-format csv
-dolt dump -f --result-format json
-
-# Move files and clean up
-mv doltdump/*.csv "${DATA_DIR}/zip_codes_with_city_state_pk.csv"
-mv doltdump/* "${DATA_DIR}/"
-rm -rf doltdump
-
-echo "Done. Enhanced zip_codes table with city/state data created." >&2
-echo "Output files:" >&2
-echo "  - ${DATA_DIR}/zip_codes_with_city_state_pk.csv" >&2
-echo "  - ${DATA_DIR}/zip_codes.sql" >&2
-echo "  - ${DATA_DIR}/zip_codes.json" >&2
-
-# Generate SQLite database
-echo "Generating SQLite database from SQL dump..." >&2
-rm -f "${DATA_DIR}/zip_codes.db"
-
-# Create table and indices
-sqlite3 "${DATA_DIR}/zip_codes.db" <<EOF
-CREATE TABLE zip_codes (
-  id INTEGER PRIMARY KEY,
-  zip TEXT,
-  lat REAL,
-  lng REAL,
-  population INTEGER,
-  timezone TEXT,
-  city TEXT,
-  state TEXT,
-  type TEXT
-);
-CREATE INDEX idx_zip ON zip_codes(zip);
-CREATE INDEX idx_city ON zip_codes(city);
-CREATE INDEX idx_state ON zip_codes(state);
-EOF
-
-# Import data
-# We filter for INSERT statements from the Dolt dump.
-# Dolt dumps are MySQL compatible, but simple INSERTs work in SQLite too.
-# We must also fix MySQL escaped quotes (\') to standard SQL escaped quotes ('')
-grep "^INSERT INTO" "${DATA_DIR}/zip_codes.sql" | sed "s/\\\\'/''/g" | sqlite3 "${DATA_DIR}/zip_codes.db"
-
-echo "  - ${DATA_DIR}/zip_codes.db" >&2
-
 rm -r "${RAW_DIR}"
+
+echo "Done. Enhanced zip_codes table with city/state data in dolt." >&2
