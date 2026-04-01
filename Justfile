@@ -53,3 +53,14 @@ docker:
   cp data/zip_codes.db server/zip_codes.db
   cd server && railpack build .
   docker tag server:latest zip-code-database:latest
+
+# Start the FastAPI server locally for development with auto-reload
+dev_server:
+  @echo "Starting dev server..."
+  cd server && DB_PATH=../data/zip_codes.db uv run uvicorn main:app --reload
+
+dev: dev_server
+
+# Run tests for the FastAPI server
+test_server:
+  cd server && DB_PATH=../data/zip_codes.db uv run pytest
