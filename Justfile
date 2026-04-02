@@ -55,6 +55,8 @@ docker:
   docker tag server:latest zip-code-database:latest
 
 # Start the FastAPI server locally for development with auto-reload
+# We manually set DB_PATH because the server defaults to looking in its own directory (for Docker),
+# but locally the database is stored in the root data/ folder.
 dev_server:
   @echo "Starting dev server..."
   cd server && DB_PATH=../data/zip_codes.db uv run uvicorn main:app --reload
