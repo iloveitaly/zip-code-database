@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+# This script downloads the ZCTA-to-County relationship data,
+# processes it to add county information to the existing zip_codes table,
+# and exports the enhanced data.
+
+cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../"
+PROJECT_ROOT="$(pwd)"
+
+DATA_DIR="${PROJECT_ROOT}/data"
+RAW_DIR="${DATA_DIR}/raw_county"
+
+mkdir -p "${RAW_DIR}"
+
+echo "Working in ${PROJECT_ROOT}" >&2
+
+# Download URL (Census public)
+# 2020 ZCTA to County Relationship file (direct TXT)
+REL_TXT_URL="https://www2.census.gov/geo/docs/maps-data/data/rel2020/zcta520/tab20_zcta520_county20_natl.txt"
+
+pushd "${RAW_DIR}" >/dev/null
+
+echo "Downloading ZCTA->County relationship file..." >&2
+curl -k -L -o tab20_zcta520_county20_natl.txt "$REL_TXT_URL"
+
+popd >/dev/null
+
+echo "Converting to ZIP -> COUNTY mapping via Python..." >&2
+"${PROJECT_ROOT}/bin/convert_zcta_to_county.py" \
+  --rel-file "${RAW_DIR}/tab20_zcta520_county20_natl.txt" \
+  --out "${DATA_DIR}/zip_code_to_county.csv"
+
+dolt table import -c -f --pk zip temp_county "${DATA_DIR}/zip_code_to_county.csv"
+
+# If we have county data, proceed with enhancement
+echo "Creating enhanced zip_codes table with county data..." >&2
+cat <<EOF >"${DATA_DIR}/enhance_zip_codes_county.sql"
+-- Add county column to existing zip_codes table
+ALTER TABLE zip_codes ADD COLUMN county VARCHAR(255);
+
+-- Update zip_codes with county data
+UPDATE zip_codes z
+JOIN temp_county c ON z.zip = c.zip
+SET
+z.county = c.county;
+
+-- Drop the temporary table
+DROP TABLE temp_county;
+EOF
+
+dolt sql --file "${DATA_DIR}/enhance_zip_codes_county.sql"
+
+# Clean up temporary files
+rm -f "${DATA_DIR}/enhance_zip_codes_county.sql"
+rm -f "${DATA_DIR}/zip_code_to_county.csv"
+
+rm -r "${RAW_DIR}"
+
+echo "Done. Enhanced zip_codes table with county data in dolt." >&2

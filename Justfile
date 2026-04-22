@@ -41,12 +41,17 @@ db_prompt:
 build-zip-city-state:
   bin/download-zcta-place
 
+# Build the zip -> county mapping table using Census 2020 relationships
+build-zip-county:
+  bin/download-county-data
+
 
 # 1. `download-gazetteer` - first, start with extracting core zip code data
 build:
   bin/download-gazetteer
   bin/add-population-data
   bin/download-zcta-place
+  bin/download-county-data
 
 # Build docker image for the API server
 docker:

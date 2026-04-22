@@ -63,8 +63,9 @@ def test_read_valid_zip_code():
     assert response.status_code == 200
     zip_data = ZipCodeData(**response.json())
     assert zip_data.zip == test_zip
-    assert zip_data.city == "Adjuntas"
+    assert zip_data.city == "Mayagüez"
     assert zip_data.state == "PR"
+    assert zip_data.county == "Adjuntas Municipio"
     assert zip_data.timezone == "America/Puerto_Rico"
 
 def test_get_zips_sorting_timezone():
@@ -93,19 +94,19 @@ def test_get_nearest_zip():
     assert response.status_code == 200
     zip_data = ZipCodeData(**response.json())
     assert zip_data.zip == "00601"
-    assert zip_data.city == "Adjuntas"
+    assert zip_data.city == "Mayagüez"
     assert zip_data.state == "PR"
 
 def test_get_nearest_zip_no_index_available():
     # Temporarily clear the KDTree to simulate an error state
-    temp_kd_tree = state.kd_tree
+    old_kd_tree = state.kd_tree
     state.kd_tree = None
     try:
-        response = client.get("/nearest?lat=0&lng=0")
+        response = client.get("/nearest?lat=18.180555&lng=-66.74996")
         assert response.status_code == 503
         assert response.json()["detail"] == "Geospatial index not unavailable"
     finally:
-        state.kd_tree = temp_kd_tree # Restore it
+        state.kd_tree = old_kd_tree
 
 def test_read_coords_path():
     # Coordinates of Adjuntas, PR (00601)
@@ -115,8 +116,9 @@ def test_read_coords_path():
     assert response.status_code == 200
     zip_data = ZipCodeData(**response.json())
     assert zip_data.zip == "00601"
-    assert zip_data.city == "Adjuntas"
+    assert zip_data.city == "Mayagüez"
     assert zip_data.state == "PR"
+
 
 def test_read_invalid_coords_path():
     # Test out of range latitude
