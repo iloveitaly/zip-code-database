@@ -66,6 +66,7 @@ def test_read_valid_zip_code():
     assert zip_data.city == "Mayagüez"
     assert zip_data.state == "PR"
     assert zip_data.county == "Adjuntas Municipio"
+    assert zip_data.normalized_county == "Adjuntas"
     assert zip_data.timezone == "America/Puerto_Rico"
 
 def test_get_zips_sorting_timezone():

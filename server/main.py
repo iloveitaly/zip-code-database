@@ -9,7 +9,7 @@ import structlog_config
 import structlog_config.fastapi_access_logger
 from fastapi import FastAPI, HTTPException, Query
 from scipy.spatial import KDTree
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # --- Configuration ---
 # Default to local file in same dir for Docker/deployment, or allow override
@@ -38,7 +38,11 @@ class ZipCodeData(BaseModel):
     city: Optional[str]
     state: Optional[str]
     county: Optional[str] = None
+    normalized_county: Optional[str] = Field(None, alias="normalizedCounty")
     type: Optional[str]
+
+    class Config:
+        populate_by_name = True
 
 # --- Database ---
 def get_db_connection():
@@ -124,7 +128,7 @@ def get_zips(
     order: str = Query("desc", description="Sort order (asc or desc)"),
     city_and_state_only: bool = Query(False, description="Filter for rows with non-null city and state")
 ):
-    allowed_sort_columns = ["population", "zip", "city", "state", "county", "timezone"]
+    allowed_sort_columns = ["population", "zip", "city", "state", "county", "normalized_county", "timezone"]
     if sort_by not in allowed_sort_columns:
         raise HTTPException(status_code=400, detail=f"Invalid sort_by field. Allowed: {', '.join(allowed_sort_columns)}")
     

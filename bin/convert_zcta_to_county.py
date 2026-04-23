@@ -15,6 +15,26 @@ import structlog_config
 # Configure logging using structlog_config
 structlog_config.configure_logger()
 
+def normalize_county(name: str) -> str:
+    """
+    Removes administrative suffixes like County, Parish, Municipio, city, etc.
+    """
+    suffixes = [
+        " County",
+        " Parish",
+        " Municipio",
+        " city",
+        " Borough",
+        " Census Area",
+        " Island",
+        " Municipality"
+    ]
+    name = name.strip()
+    for suffix in suffixes:
+        if name.endswith(suffix):
+            return name[:-len(suffix)].strip()
+    return name
+
 def load_rel_file(path):
     """
     Loads the 2020 ZCTA->County relationship file.
@@ -78,13 +98,16 @@ def main(rel_file, out):
     logger.info("Selected best counties for ZIPs", selections_count=len(selections))
 
     # Produce output rows
-    out_rows = [{"zip": zcta, "county": county} for zcta, county in selections.items()]
+    out_rows = [
+        {"zip": zcta, "county": county, "normalized_county": normalize_county(county)} 
+        for zcta, county in selections.items()
+    ]
 
     # Sort by zip for determinism
     out_rows.sort(key=lambda r: r["zip"])
 
     with open(out, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["zip", "county"])
+        writer = csv.DictWriter(f, fieldnames=["zip", "county", "normalized_county"])
         writer.writeheader()
         writer.writerows(out_rows)
 

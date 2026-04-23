@@ -108,12 +108,14 @@ CREATE TABLE zip_codes (
   city TEXT,
   state TEXT,
   county TEXT,
+  normalized_county TEXT,
   type TEXT
 );
 CREATE INDEX idx_zip ON zip_codes(zip);
 CREATE INDEX idx_city ON zip_codes(city);
 CREATE INDEX idx_state ON zip_codes(state);
 CREATE INDEX idx_county ON zip_codes(county);
+CREATE INDEX idx_normalized_county ON zip_codes(normalized_county);
 EOF
 
 # Import data

@@ -37,14 +37,16 @@ dolt table import -c -f --pk zip temp_county "${DATA_DIR}/zip_code_to_county.csv
 # If we have county data, proceed with enhancement
 echo "Creating enhanced zip_codes table with county data..." >&2
 cat <<EOF >"${DATA_DIR}/enhance_zip_codes_county.sql"
--- Add county column to existing zip_codes table
+-- Add county columns to existing zip_codes table
 ALTER TABLE zip_codes ADD COLUMN county VARCHAR(255);
+ALTER TABLE zip_codes ADD COLUMN normalized_county VARCHAR(255);
 
 -- Update zip_codes with county data
 UPDATE zip_codes z
 JOIN temp_county c ON z.zip = c.zip
 SET
-z.county = c.county;
+z.county = c.county,
+z.normalized_county = c.normalized_county;
 
 -- Drop the temporary table
 DROP TABLE temp_county;
